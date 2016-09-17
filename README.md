@@ -35,7 +35,7 @@ module.exports = {
     chunkFilename: "[name]-[chunkhash].js"
   },
   plugins: [
-    new SplitByNamePlugin([{
+    new ExtractModulesPlugin([{
         name: 'vendor',
         test: /vendor\//,
         except: 'frameworks'

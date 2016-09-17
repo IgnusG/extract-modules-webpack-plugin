@@ -1,6 +1,6 @@
-## Split By Name Webpack Plugin
+## Extract Modules Webpack Plugin
 
-This plugin will split your entry bundle into any number of arbitrarily defined smaller bundles.
+This plugin will extract modules from any entry bundle into any number of arbitrarily defined smaller bundles
 
 ### Why?
 
@@ -12,9 +12,10 @@ bundle, then if they haven't changed between builds, your users may still be abl
 
 ### How?
 
-Configuration of the plugin is simple. You instantiate the plugin with a single option: `buckets` which should be an
-array of objects, each containing the keys `name` and `regex`. Any modules which are in your entry chunk which match the
-bucket's regex (first matching bucket is used), are then moved to a new chunk with the given name.
+Configuration of the plugin is simple. You instantiate the plugin with a single array of objects (lets call them buckets) with the keys `name` and `test`. Any modules which are in your entry chunk which match the
+bucket's regular expression inside test (first matching bucket is used), are then moved to a new chunk with the given name.
+
+Further limiting can be achieved using the options `only` (whitelist) and `except` (blacklist). They both accept either a single or an array of entry bundle names.
 
 Creating a 'catch-all' bucket is not necessary: anything which doesn't match one of the defined buckets will be left in
 the original chunk.
@@ -22,10 +23,11 @@ the original chunk.
 ### Example
 
 ```js
-var SplitByNamePlugin = require('split-by-name-webpack-plugin');
+var ExtractModulesPlugin = require('extract-modules-webpack-plugin');
 module.exports = {
   entry: {
-    app: 'app.js'
+    app: 'app.js',
+    frameworks: 'frameworks.js'
   },
   output: {
     path: __dirname + '/public',
@@ -33,15 +35,15 @@ module.exports = {
     chunkFilename: "[name]-[chunkhash].js"
   },
   plugins: [
-    new SplitByNamePlugin({
-      buckets: [{
+    new SplitByNamePlugin([{
         name: 'vendor',
-        regex: /vendor\//
+        test: /vendor\//,
+        except: 'frameworks'
       }, {
         name: 'views',
-        regex: /views\//
-      }]
-    })
+        test: /views\//,
+        only: 'app'
+    }])
   ]
 };
 ```
@@ -61,6 +63,7 @@ An an example structure of modules included in the entry chunk:
     /home.js
     /banner.js
 /app.js
+/frameworks.js (requires vendor/backbone.js)
 ```
 
 The output would be three files:
@@ -70,6 +73,7 @@ The output would be three files:
     - `lib/url.js`
 - `vendor-[hash].js`, containing:
     - `vendor/jquery.js`
+- `frameworks-[hash].js`, containing:
     - `vendor/backbone.js`
 - `views-[hash].js`, containing:
     - `lib/views/list.js`

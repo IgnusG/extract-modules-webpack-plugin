@@ -1,30 +1,56 @@
-var SplitByNamePlugin = module.exports = function (options) {
-  this.options = options;
+const Entrypoint = require('webpack/lib/Entrypoint');
 
-  // process buckets
-  this.options.buckets = this.options.buckets.slice(0).map(function (bucket) {
-    if (!(bucket.regex instanceof RegExp)) {
-      bucket.regex = new RegExp(bucket.regex);
-    }
-    return bucket;
-  });
+var ExtractModulesPlugin = module.exports = function (buckets) {
+  const genericError = 'Invalid use of ExtractModulesPlugin: ';
+  try {
+    this.buckets = buckets.map(function (bucket) {
+      if (!bucket.name && !(bucket.name instanceof String))
+        throw new Error('you need to provide a name for each bucket');
+
+      if (!bucket.test)
+        throw new Error('you need to provide a valid regular expression for each bucket');
+      if (!(bucket.test instanceof RegExp))
+        bucket.test = new RegExp(bucket.test);
+      bucket.test = bucket.test.test.bind(bucket.test);
+
+      if (bucket.only)
+        if (!(bucket.only instanceof Array))
+          bucket.only = [bucket.only];
+
+      if (bucket.except) {
+        if (!(bucket.except instanceof Array))
+          throw new Error('ignore needs to be an array of strings');
+      } else bucket.except = [];
+
+      return bucket;
+    });
+  } catch (e) {
+    throw new Error(genericError + 'use ExtractModulesPlugin([ name: "vendor", test: /node_modules/ ]) > ' + e.message)
+  }
 };
 
-SplitByNamePlugin.prototype.apply = function(compiler) {
-  var options = this.options;
+ExtractModulesPlugin.prototype.apply = function (compiler) {
+  var buckets = this.buckets;
 
   function findMatchingBucket(chunk) {
-    var match = null;
-    options.buckets.some(function (bucket) {
-      if (bucket.regex.test(chunk.rawRequest)) {
-        match = bucket;
-        return true;
+    return buckets.find(function (bucket) {
+      if (bucket.test(chunk.resource)) {
+        return bucket;
       }
     });
-    return match;
   }
 
-  compiler.plugin("compilation", function(compilation) {
+  /** @returns {boolean} whether chunk is on blacklist */
+  function isChunkIgnored(chunk, bucket) {
+    return bucket.except.indexOf(chunk.name) != -1;
+  }
+
+  /** @returns {boolean} whether chunk is not on whitelist */
+  function isChunkExcluded(chunk, bucket) {
+    return !!bucket.only && bucket.only.indexOf(chunk.name) == -1
+  }
+
+  compiler.plugin("compilation", function (compilation) {
     var extraChunks = {};
 
     // Find the chunk which was already created by this bucket.
@@ -33,44 +59,65 @@ SplitByNamePlugin.prototype.apply = function(compiler) {
       return extraChunks[bucket.name];
     }
 
-    compilation.plugin("optimize-chunks", function(chunks) {
+    compilation.plugin("optimize-chunks", function (chunks) {
       var addChunk = this.addChunk.bind(this);
+      var chunksWithExtractedModules = {};
+
       chunks
-        // only parse the entry chunk
         .filter(function (chunk) {
-          return chunk.entry;
+          return chunk.isInitial() && chunk.name;
         })
-        .forEach(function(chunk) {
+        .forEach(function (chunk) {
+          var newChunk;
+
           chunk.modules.slice().forEach(function (mod) {
-            var bucket = findMatchingBucket(mod),
-                newChunk;
-            if (!bucket) {
-              // it stays in the original bucket
-              return;
-            }
+            var bucket = findMatchingBucket(mod);
+
+            if (!bucket) return;
+            if (isChunkIgnored(chunk, bucket)) return;
+            if (isChunkExcluded(chunk, bucket)) return;
+
             if (!(newChunk = bucketToChunk(bucket))) {
               newChunk = extraChunks[bucket.name] = addChunk(bucket.name);
             }
-            // add the module to the new chunk
-            newChunk.addModule(mod);
-            mod.addChunk(newChunk);
-            // remove it from the existing chunk
-            mod.removeChunk(chunk);
+
+            chunk.moveModule(mod, newChunk);
           });
 
-          options.buckets
-            .map(bucketToChunk)
-            .filter(Boolean)
-            .concat(chunk)
-            .forEach(function (chunk, index, allChunks) { // allChunks = [bucket0, bucket1, .. bucketN, orig]
-              if (index) { // not the first one, they get the first chunk as a parent
-                chunk.parents = [allChunks[0]];
-              } else { // the first chunk, it gets the others as 'sub' chunks
-                chunk.chunks = allChunks.slice(1);
-              }
-              chunk.initial = chunk.entry = !index;
-            });
+          if (newChunk) {
+            if (chunksWithExtractedModules[newChunk.name])
+              chunksWithExtractedModules[newChunk.name].push(chunk);
+            else
+              chunksWithExtractedModules[newChunk.name] = [chunk];
+          }
         });
+
+      buckets.map(bucketToChunk).filter(Boolean).forEach(function (newChunk) {
+
+        // All non-runtime chunks need an entrypoint pointing to themself
+        // Without this the chunk's name will be incorrect
+        newChunk.entrypoints.unshift(new Entrypoint(newChunk.name));
+        newChunk.entrypoints[0].chunks.push(newChunk);
+
+        // New chunks need to have an entrypoint connection to the runtime
+        // Without this entries will not be correctly mapped between requires and new chunks
+        var chunk = chunksWithExtractedModules[newChunk.name][0];
+        var manifestEntrypoint = chunk.entrypoints[0];
+
+        newChunk.entrypoints.unshift(manifestEntrypoint);
+        manifestEntrypoint.chunks.push(newChunk);
+
+        // Finding parents (10x better than Finding Dory)
+        // Without this dependencies that were separated by other means but required by our new chunk would be duplicated
+        var commonParents = [];
+        chunksWithExtractedModules[newChunk.name].forEach(function (chunk) {
+          commonParents = commonParents.filter(common => common != chunk);
+          commonParents = commonParents.concat(
+            chunk.parents.filter(parent => !commonParents.some(common => parent == common))
+          );
+        });
+        newChunk.parents = commonParents;
+      })
     });
   });
 };

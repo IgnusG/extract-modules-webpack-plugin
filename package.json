@@ -1,6 +1,6 @@
 {
   "name": "extract-modules-webpack-plugin",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Extract modules fomr a webpack entry bundle into any number of arbitrarily defined smaller bundles",
   "main": "index.js",
   "repository": {

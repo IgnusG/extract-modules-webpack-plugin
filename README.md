@@ -1,5 +1,8 @@
 ## Extract Modules Webpack Plugin
 
+Please note that this plugin is **experimental** for now. I only test it on my projects which all have a manifest declared in the CommonsChunkPlugin. Not sure how it will behave without it.
+It's also derived from the original plugin [split-by-name-webpack-plugin][original-plugin].
+
 This plugin will extract modules from any entry bundle into any number of arbitrarily defined smaller bundles
 
 ### Why?
@@ -83,3 +86,4 @@ The output would be three files:
 
 [browserscope]: http://www.browserscope.org/?category=network&v=1
 [stevesouders]: http://www.stevesouders.com/blog/2013/09/05/domain-sharding-revisited/
+[original-plugin]: https://www.npmjs.com/package/split-by-name-webpack-plugin

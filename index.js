@@ -19,7 +19,7 @@ var ExtractModulesPlugin = module.exports = function (buckets) {
 
       if (bucket.except) {
         if (!(bucket.except instanceof Array))
-          throw new Error('ignore needs to be an array of strings');
+          bucket.except = [bucket.except];
       } else bucket.except = [];
 
       return bucket;

@@ -1,19 +1,20 @@
 {
-  "name": "split-by-name-webpack-plugin",
-  "version": "0.0.3",
-  "description": "Split a Webpack entry bundle into any number of arbitrarily defined smaller bundles",
+  "name": "extract-modules-webpack-plugin",
+  "version": "0.0.1",
+  "description": "Extract modules fomr a webpack entry bundle into any number of arbitrarily defined smaller bundles",
   "main": "index.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/soundcloud/split-by-name-webpack-plugin"
+    "url": "https://github.com/ignusg/extract-modules-webpack-plugin"
   },
   "keywords": [
     "webpack"
   ],
-  "author": "SoundCloud, Nick Fisher",
+  "author": "IgnusG",
+  "contributors": ["SoundCloud, Nick Fisher"],
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/soundcloud/split-by-name-webpack-plugin/issues"
+    "url": "https://github.com/ignusg/extract-modules-webpack-plugin/issues"
   },
-  "homepage": "https://github.com/soundcloud/split-by-name-webpack-plugin"
+  "homepage": "https://github.com/ignusg/extract-modules-webpack-plugin"
 }
